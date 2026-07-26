@@ -18,7 +18,7 @@ Bu projedeki döngü şudur:
 3. Sayfayı Playwright CLI ile aç.
 4. Erişilebilirlik snapshot'ını al.
 5. CAPTCHA ve prompt injection gibi deterministik engelleri tara.
-6. Güvenli snapshot üzerinden Gemini'den tek bir yapılandırılmış karar iste.
+6. Seçili model sağlayıcısından tek bir yapılandırılmış karar iste.
 7. Kararı politika katmanında yeniden doğrula.
 8. Gerçek profil değerini gerekiyorsa yalnızca yerelde çöz.
 9. İzin verilen Playwright CLI komutunu çalıştır.
@@ -94,9 +94,9 @@ Adapter'ın izin verdiği komutlar sınırlıdır:
 Model `eval`, `run-code`, shell, PowerShell, JavaScript, yeni URL veya keyfî CLI
 bayrağı üretemez. Bu, prompt injection etkisini ciddi biçimde küçültür.
 
-## 5. Gemini ne görüyor?
+## 5. Model sağlayıcısı ne görüyor?
 
-Varsayılan tasarımda Gemini bütün aday profilini görmez. Şunları görür:
+Varsayılan tasarımda seçilen model bütün aday profilini görmez. Şunları görür:
 
 - geçerli sayfa URL'si;
 - PII değerleri maskelenmiş snapshot;
@@ -110,6 +110,41 @@ görmez. Kontrolör bu değeri başvuru alanına yazmadan hemen önce yerel JSON
 Cover letter için gerekli deneyim özeti `model_context` alanına bilinçli olarak
 eklenebilir. Bu alan modele gönderilir; dolayısıyla yalnızca paylaşmayı kabul ettiğiniz
 doğrulanmış bilgileri içermelidir.
+
+### Model-agnostic mimari
+
+LangGraph düğümleri Gemini veya DeepSeek sınıfını doğrudan tanımaz. Yalnızca
+`DecisionProvider` protokolüne bağımlıdır. Bu protokol iki operasyon tanımlar:
+
+- güvenli sayfa girdisinden tek karar üretme;
+- kayan 24 saatlik kota durumunu bildirme.
+
+Repo iki bağımsız adapter içerir:
+
+- `gemini`: Gemini Interactions API ve JSON şeması;
+- `openai_compatible`: DeepSeek ve uyumlu `/chat/completions` servisleri.
+
+Sağlayıcı `.env` içindeki `MODEL_PROVIDER`, `MODEL_NAME`, `MODEL_API_KEY` ve gerektiğinde
+`MODEL_BASE_URL` ile seçilir. Graph, güvenlik politikası ve Playwright adapter'ı
+değişmez. Yeni sağlayıcı eklemek graph kodunu değiştirmeyi gerektirmemelidir.
+
+DeepSeek'in [resmî JSON modu dokümanına](https://api-docs.deepseek.com/api/create-chat-completion)
+göre prompt açıkça JSON istemezse model token sınırına kadar boşluk
+üretebilir. Bu nedenle compatible adapter hem açık JSON talimatı verir hem 1.600 çıktı
+tokenı ve 120 saniye sınırı uygular. Yanıt yine ortak karar sözleşmesinden geçirilir.
+
+### Neden CloakBrowser kullanılmıyor?
+
+[CloakBrowser'ın resmî reposu](https://github.com/CloakHQ/CloakBrowser) projeyi kaynak
+kod seviyesinde fingerprint değiştiren,
+otomasyon sinyallerini kaldıran ve anti-bot sistemlerini geçen bir stealth Chromium
+olarak tanımlar. Bu özellikler normal oturum izolasyonundan farklıdır; sitenin
+otomasyonu tespit etme mekanizmasını aşmayı hedefler.
+
+Bu açık kaynak agent bu yüzden yalnızca resmî Playwright CLI adapter'ını destekler.
+`BROWSER_PROVIDER=cloakbrowser` seçimi güvenli biçimde hata verir. CAPTCHA çözücü,
+fingerprint spoofing, residential proxy rotasyonu veya insan davranışı taklidi yoktur.
+Amaç gizlenmek değil, resmî kariyer sayfasında sınırlı ve denetlenebilir eylem yapmaktır.
 
 ## 6. Yapılandırılmış çıktı neden önemli?
 
@@ -205,6 +240,23 @@ Copy-Item config\jobs.example.json jobs.json
 `.env` içindeki yolları bu iki yerel dosyanın tam yolu yapın. API anahtarını yalnızca
 `.env` veya tercih ettiğiniz secret manager üzerinden verin.
 
+Gemini örneği:
+
+```text
+MODEL_PROVIDER=gemini
+MODEL_NAME=gemini-3.6-flash
+MODEL_API_KEY=...
+```
+
+DeepSeek veya başka bir uyumlu servis örneği:
+
+```text
+MODEL_PROVIDER=openai_compatible
+MODEL_NAME=deepseek-v4-flash
+MODEL_BASE_URL=https://api.deepseek.com
+MODEL_API_KEY=...
+```
+
 Kurulumu salt-okunur biçimde doğrulayın:
 
 ```powershell
@@ -256,7 +308,7 @@ harf ve ek metin kabul edilmez.
 
 İki ayrı sınır vardır:
 
-- `GEMINI_DAILY_REQUEST_LIMIT`: kayan 24 saatte yapılabilecek model çağrısı;
+- `MODEL_DAILY_REQUEST_LIMIT`: kayan 24 saatte yapılabilecek model çağrısı;
 - `JOB_AGENT_MAX_STEPS`: bir yürütme dilimindeki tarayıcı eylemi sayısı.
 
 Varsayılan model çağrısı sınırı 900'dür ve kod 999'dan büyük değeri kabul etmez.
@@ -270,8 +322,8 @@ Tek bir büyük “god file” yerine bağımlılıklar yönlerine göre ayrıl�
 - `domain`: yalnızca veri tipleri;
 - `config`: ortam ve JSON doğrulama;
 - `security`: saf politika fonksiyonları;
-- `browser`: Playwright CLI ayrıntıları;
-- `model`: Gemini protokolü ve prompt sözleşmesi;
+- `browser`: browser protokolü, Playwright CLI adapter'ı ve provider politikası;
+- `model`: model protokolü, ortak karar sözleşmesi ve sağlayıcı adapter'ları;
 - `storage`: kota kalıcılığı;
 - `application`: bu parçaları bir araya getiren iş akışı.
 

@@ -1,8 +1,9 @@
 # Safe Job Application Agent
 
-A security-gated, open-source reference agent for navigating remote-job application
-forms on official company domains. It uses pure LangGraph for resumable state,
-Gemini for constrained decisions, and the official Playwright CLI for browser actions.
+A security-gated, model-agnostic reference agent for navigating remote-job application
+forms on official company domains. It uses pure LangGraph for resumable state, a
+provider protocol for constrained model decisions, and the official Playwright CLI
+for browser actions.
 
 This repository contains no applicant profile, resume, API key, browser state,
 checkpoint, screenshot, or machine-specific path. Runtime data is deliberately kept
@@ -18,11 +19,47 @@ in ignored local files.
 - PII redaction: known profile values are removed from later page snapshots before model calls.
 - Human checkpoints: CAPTCHA, MFA, unknown/sensitive answers, and final submission pause.
 - Exact final approval: only `EVET` allows the prepared final submit action.
-- Rolling budget: Gemini calls stop at the configured 24-hour cap (maximum 999).
+- Rolling budget: model calls stop at the configured 24-hour cap (maximum 999).
 - Release audit: committed files are scanned for secrets, PII, runtime artifacts, and local paths.
 
 The project does not bypass CAPTCHA, fingerprinting, access controls, rate limits, or
 site terms. It intentionally uses a normal headed browser by default.
+
+## Model providers
+
+The orchestration depends on the `DecisionProvider` protocol, not a vendor SDK.
+Two adapters prove the boundary:
+
+- `gemini`: Gemini Interactions API with schema-constrained JSON.
+- `openai_compatible`: JSON-mode chat completions for DeepSeek and compatible APIs,
+  including local endpoints.
+
+Select a provider only through ignored environment configuration:
+
+```text
+MODEL_PROVIDER=openai_compatible
+MODEL_API_KEY=...
+MODEL_NAME=deepseek-v4-flash
+MODEL_BASE_URL=https://api.deepseek.com
+```
+
+The compatible adapter explicitly requests JSON, caps output at 1,600 tokens, uses a
+120-second timeout, and validates the same vendor-neutral decision contract. These
+limits matter because [DeepSeek's official JSON-mode documentation](https://api-docs.deepseek.com/api/create-chat-completion)
+warns that a missing JSON instruction can otherwise produce whitespace until the token
+limit.
+
+## Playwright CLI and CloakBrowser
+
+The supported browser provider is the official Playwright CLI. It exposes auditable
+snapshot refs and a narrow command allowlist without letting the model execute code.
+
+[CloakBrowser](https://github.com/CloakHQ/CloakBrowser) is deliberately not an
+execution backend. Its own project describes source-level fingerprint modification,
+automation-signal removal, behavioral imitation, and passing anti-bot systems. Those
+anti-detection goals conflict with this repository's compliance boundary. Selecting
+`BROWSER_PROVIDER=cloakbrowser` therefore fails closed. No CAPTCHA solver, stealth
+flag, proxy rotation, or fingerprint spoofing is included.
 
 ## Quick start
 
@@ -65,7 +102,7 @@ src/job_application_agent/
   browser/       official Playwright CLI adapter
   config/        environment and JSON validation
   domain/        dependency-free decision types
-  model/         Gemini structured-output adapter
+  model/         vendor-neutral contract plus provider adapters
   security/      domain, action, redaction, and injection policies
   storage/       rolling quota ledger
 tests/           policy and regression tests

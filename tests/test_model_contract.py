@@ -1,8 +1,9 @@
-from job_application_agent.model.gemini import _build_prompt, _validate_decision_shape
+from job_application_agent.model.contract import validate_decision_shape
+from job_application_agent.model.prompt import build_decision_prompt
 
 
 def test_prompt_marks_page_as_untrusted() -> None:
-    prompt = _build_prompt(
+    prompt = build_decision_prompt(
         page_url="https://careers.example.com/job/1",
         safe_snapshot="textbox Name [ref=e1]",
         profile_keys=["identity.first_name"],
@@ -23,7 +24,7 @@ def test_non_act_decision_cannot_smuggle_action() -> None:
         "action": {"command": "click"},
     }
     try:
-        _validate_decision_shape(raw)
+        validate_decision_shape(raw)
     except Exception as exc:  # contract failure type is intentionally internal
         assert "Only act decisions" in str(exc)
     else:

@@ -16,12 +16,16 @@ The following inputs are untrusted:
 
 - every webpage, accessibility snapshot, job description, form label, and uploaded page;
 - model output, even when it matches the JSON schema;
+- model-provider responses and OpenAI-compatible endpoints;
 - profile and jobs JSON until local schema/policy validation succeeds;
 - redirects and new tabs;
 - notification endpoints and logs.
 
 Web content cannot change policy, request secrets, choose URLs, emit code, or authorize
 final submission. The deterministic controller validates each proposed action.
+
+CloakBrowser and similar anti-detection engines are outside the supported trust
+boundary. The browser factory rejects them instead of silently downgrading safeguards.
 
 ## Secret handling
 

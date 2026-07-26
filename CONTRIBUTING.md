@@ -5,6 +5,10 @@ model adapters. New browser capabilities require an explicit command allowlist e
 policy validation, and tests. Never add `eval`, model-authored `run-code`, shell
 execution, CAPTCHA bypass, stealth plugins, or automatic final submission.
 
+New model vendors must implement `DecisionProvider`, share the same prompt and decision
+contract, reserve the rolling quota before network I/O, impose a finite timeout/output
+limit, and pass provider-contract tests. Vendor logic must not enter graph nodes.
+
 Before opening a pull request:
 
 ```powershell

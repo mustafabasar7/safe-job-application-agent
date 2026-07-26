@@ -25,7 +25,7 @@ def _doctor() -> int:
     try:
         settings = Settings.from_environment(Path.cwd())
         services = Services(settings)
-    except (ConfigurationError, OSError, ValueError) as exc:
+    except (ConfigurationError, OSError, RuntimeError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     executable = shutil.which(settings.playwright_cli) or shutil.which(
@@ -37,7 +37,8 @@ def _doctor() -> int:
     used, limit = services.model.quota_status()
     print("Configuration: OK")
     print(f"Playwright CLI: {executable}")
-    print(f"Gemini rolling quota: {used}/{limit}")
+    print(f"Model provider: {settings.model_provider}")
+    print(f"Model rolling quota: {used}/{limit}")
     print("Candidate values: loaded locally and not printed")
     return 0
 

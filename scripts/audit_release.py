@@ -124,7 +124,7 @@ def _candidate_files(root: Path) -> list[Path]:
 
 def _git_files(root: Path) -> list[Path] | None:
     completed = subprocess.run(
-        ["git", "ls-files", "-z"],
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
         cwd=root,
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,

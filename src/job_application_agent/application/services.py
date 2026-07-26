@@ -6,9 +6,9 @@ from typing import Any
 
 from job_application_agent.application.notifications import LocalNotifier
 from job_application_agent.application.profile import Profile
-from job_application_agent.browser.playwright_cli import PlaywrightCliBrowser
+from job_application_agent.browser.factory import create_browser_provider
 from job_application_agent.config.settings import Settings, load_json_object
-from job_application_agent.model.gemini import GeminiDecisionProvider
+from job_application_agent.model.factory import create_decision_provider
 from job_application_agent.security.policy import JobPolicy
 from job_application_agent.storage.quota import RollingQuota
 
@@ -30,19 +30,22 @@ class Services:
         self.settings = settings
         self.profile = Profile(load_json_object(settings.candidate_profile_path))
         self.notifier = LocalNotifier(settings.workspace / ".data")
-        self.browser = PlaywrightCliBrowser(
+        self.browser = create_browser_provider(
+            provider=settings.browser_provider,
             executable=settings.playwright_cli,
             session=settings.playwright_session,
             workspace=settings.workspace,
             headed=settings.headed,
         )
         quota = RollingQuota(
-            settings.workspace / ".data" / "gemini-quota.json",
+            settings.workspace / ".data" / "model-quota.json",
             settings.daily_request_limit,
         )
-        self.model = GeminiDecisionProvider(
-            api_key=settings.gemini_api_key,
-            model=settings.gemini_model,
+        self.model = create_decision_provider(
+            provider=settings.model_provider,
+            api_key=settings.model_api_key,
+            model=settings.model_name,
+            base_url=settings.model_base_url,
             quota=quota,
         )
         self._jobs = _load_jobs(settings.jobs_config_path)

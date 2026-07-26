@@ -16,11 +16,14 @@ class ConfigurationError(ValueError):
 @dataclass(frozen=True)
 class Settings:
     workspace: Path
-    gemini_api_key: str
-    gemini_model: str
+    model_provider: str
+    model_api_key: str
+    model_name: str
+    model_base_url: str
     daily_request_limit: int
     candidate_profile_path: Path
     jobs_config_path: Path
+    browser_provider: str
     playwright_cli: str
     playwright_session: str
     headed: bool
@@ -30,15 +33,35 @@ class Settings:
     def from_environment(cls, workspace: Path | None = None) -> Settings:
         root = (workspace or Path.cwd()).resolve()
         load_dotenv(root / ".env", override=False)
-        limit = _bounded_integer("GEMINI_DAILY_REQUEST_LIMIT", 900, 1, 999)
+        provider = os.getenv("MODEL_PROVIDER", "gemini").strip().casefold()
+        default_model = (
+            "gemini-3.6-flash" if provider == "gemini" else "deepseek-v4-flash"
+        )
+        provider_key = (
+            os.getenv("GEMINI_API_KEY", "")
+            if provider == "gemini"
+            else os.getenv("OPENAI_COMPATIBLE_API_KEY", "")
+        )
+        configured_name = os.getenv("MODEL_NAME", "").strip()
+        if not configured_name and provider == "gemini":
+            configured_name = os.getenv("GEMINI_MODEL", "").strip()
+        limit = _bounded_integer("MODEL_DAILY_REQUEST_LIMIT", 900, 1, 999)
         max_steps = _bounded_integer("JOB_AGENT_MAX_STEPS", 30, 1, 100)
         return cls(
             workspace=root,
-            gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
-            gemini_model=os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip(),
+            model_provider=provider,
+            model_api_key=os.getenv("MODEL_API_KEY", "").strip()
+            or provider_key.strip(),
+            model_name=configured_name or default_model,
+            model_base_url=os.getenv(
+                "MODEL_BASE_URL", "https://api.deepseek.com"
+            ).strip(),
             daily_request_limit=limit,
             candidate_profile_path=_required_path("CANDIDATE_PROFILE_PATH"),
             jobs_config_path=_required_path("JOBS_CONFIG_PATH"),
+            browser_provider=os.getenv("BROWSER_PROVIDER", "playwright_cli")
+            .strip()
+            .casefold(),
             playwright_cli=os.getenv("PLAYWRIGHT_CLI", "playwright-cli").strip(),
             playwright_session=os.getenv("PLAYWRIGHT_SESSION", "job-agent").strip(),
             headed=os.getenv("PLAYWRIGHT_HEADLESS", "false").lower()
@@ -47,8 +70,16 @@ class Settings:
         )
 
     def validate_runtime(self) -> None:
-        if not self.gemini_api_key:
-            raise ConfigurationError("GEMINI_API_KEY is missing")
+        if self.model_provider not in {"gemini", "openai_compatible"}:
+            raise ConfigurationError("Unsupported model provider")
+        if not self.model_api_key:
+            raise ConfigurationError("Model API key is missing")
+        if not self.model_name:
+            raise ConfigurationError("Model name is missing")
+        if self.browser_provider != "playwright_cli":
+            raise ConfigurationError(
+                "Only the policy-compliant playwright_cli browser is supported"
+            )
         for label, path in (
             ("candidate profile", self.candidate_profile_path),
             ("jobs config", self.jobs_config_path),

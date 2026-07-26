@@ -7,6 +7,8 @@
 - Confirm the site does not prohibit automated or AI-generated application content.
 - Confirm applicant facts are explicit; unknown answers require a human interrupt.
 - Confirm the rolling request budget and browser session are healthy.
+- Confirm the configured model adapter passes the common decision contract and that
+  `BROWSER_PROVIDER` remains `playwright_cli`; do not substitute CloakBrowser.
 
 ## Interrupt response table
 

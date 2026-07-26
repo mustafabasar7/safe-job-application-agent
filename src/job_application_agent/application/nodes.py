@@ -10,6 +10,10 @@ from job_application_agent.application.runtime import services
 from job_application_agent.application.services import Services
 from job_application_agent.application.state import WorkflowState
 from job_application_agent.domain.models import BrowserAction, ValueOrigin
+from job_application_agent.security.loop_guard import (
+    repeated_action_block_reason,
+    step_budget_block_reason,
+)
 from job_application_agent.security.policy import (
     PolicyViolation,
     action_requires_final_approval,
@@ -144,15 +148,12 @@ def pause_for_user(state: WorkflowState) -> WorkflowState:
 
 
 def enforce_step_budget(state: WorkflowState) -> WorkflowState:
-    if state.get("step", 0) < services().settings.max_steps:
-        return state
-    return _blocked(
-        "site_error",
-        (
-            "Step budget reached. Inspect the browser, then reply DEVAM to grant "
-            "another tranche."
-        ),
+    reason = step_budget_block_reason(
+        state.get("step", 0), services().settings.max_steps
     )
+    if reason is None:
+        return state
+    return _blocked("site_error", reason)
 
 
 def _handle_sensitive_action(
@@ -220,10 +221,9 @@ def _execute_validated_action(
         resolved = _resolve_action_value(action, runtime)
         signature = _action_signature(action)
         recent = state.get("recent_actions", [])
-        if recent.count(signature) >= 2:
-            return _blocked(
-                "site_error", "The same logical action repeated three times"
-            )
+        repeat_reason = repeated_action_block_reason(signature, recent)
+        if repeat_reason:
+            return _blocked("site_error", repeat_reason)
         page = runtime.browser.execute(action, resolved)
         job = runtime.job(state["job_id"])
         current_url = page.url or state["current_url"]

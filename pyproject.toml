@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "safe-job-application-agent"
 version = "0.1.0"
-description = "Safety-gated LangGraph and Playwright CLI agent for official company career sites"
+description = "Model-agnostic LangGraph and Playwright CLI agent for official career sites"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
