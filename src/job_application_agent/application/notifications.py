@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import os
 from dataclasses import dataclass
@@ -41,10 +42,11 @@ class LocalNotifier:
         print(f"\a[JOB_AGENT:{kind.upper()}] {message} ({safe_url})", flush=True)
         if os.name == "nt":
             try:
-                import winsound
-
-                winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
-            except (ImportError, RuntimeError):
+                winsound = importlib.import_module("winsound")
+                message_beep = vars(winsound)["MessageBeep"]
+                icon = vars(winsound)["MB_ICONEXCLAMATION"]
+                message_beep(icon)
+            except (AttributeError, ImportError, RuntimeError):
                 pass
 
 
