@@ -1,0 +1,4 @@
+interface:
+  display_name: "Apply to Jobs Safely"
+  short_description: "Run official-site applications with safety gates"
+  default_prompt: "Use $apply-to-jobs-safely to configure and run a guarded application on an official company career site."

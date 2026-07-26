@@ -1,0 +1,24 @@
+{
+  "identity": {
+    "first_name": "YOUR_FIRST_NAME",
+    "last_name": "YOUR_LAST_NAME",
+    "email": "YOUR_EMAIL",
+    "phone_e164": "YOUR_PHONE_WITH_COUNTRY_CODE",
+    "country": "YOUR_COUNTRY",
+    "city": "YOUR_CITY"
+  },
+  "work": {
+    "notice_period": "YOUR_NOTICE_PERIOD",
+    "salary_expectation": "YOUR_SALARY_EXPECTATION",
+    "work_authorization": "YOUR_VERIFIED_WORK_AUTHORIZATION"
+  },
+  "documents": {
+    "resume": "ABSOLUTE_PATH_TO_YOUR_RESUME",
+    "cover_letter": "ABSOLUTE_PATH_TO_OPTIONAL_COVER_LETTER"
+  },
+  "model_context": {
+    "languages": ["LANGUAGE_AND_LEVEL"],
+    "professional_summary": "ONLY_INCLUDE_FACTS_YOU_EXPLICITLY_ALLOW_THE_MODEL_TO_RECEIVE",
+    "cover_letter_style": "Concise, factual, and specific to the role"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "jobs": [
+    {
+      "id": "company-role-001",
+      "company": "EXAMPLE_COMPANY",
+      "role": "EXAMPLE_REMOTE_ROLE",
+      "company_domain": "careers.example.com",
+      "discovery_url": "https://careers.example.com/jobs/example-role",
+      "application_url": "https://careers.example.com/jobs/example-role",
+      "remote": true,
+      "remote_regions": ["EXPLICITLY_VERIFIED_REGION"],
+      "resume_key": "documents.resume"
+    }
+  ]
+}
