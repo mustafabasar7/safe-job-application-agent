@@ -20,7 +20,8 @@ in ignored local files.
 - Human checkpoints: CAPTCHA, MFA, unknown/sensitive answers, and final submission pause.
 - Exact final approval: only `EVET` allows the prepared final submit action.
 - Rolling budget: model calls stop at the configured 24-hour cap (maximum 999).
-- Release audit: committed files are scanned for secrets, PII, runtime artifacts, and local paths.
+- Release audit: the current tree, untracked nonignored files, and full Git history are
+  scanned for secrets, PII, runtime artifacts, and local paths.
 
 The project does not bypass CAPTCHA, fingerprinting, access controls, rate limits, or
 site terms. It intentionally uses a normal headed browser by default.

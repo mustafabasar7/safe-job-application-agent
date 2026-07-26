@@ -29,6 +29,11 @@ FORBIDDEN_NAMES = {
     "candidate.json",
     "jobs.json",
 }
+ALLOWED_TEMPLATE_NAMES = {
+    ".env.example",
+    "candidate.example.json",
+    "jobs.example.json",
+}
 FORBIDDEN_SUFFIXES = {
     ".db",
     ".doc",
@@ -44,10 +49,22 @@ FORBIDDEN_SUFFIXES = {
 }
 CONTENT_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("google-api-key", re.compile(r"AIza[0-9A-Za-z_-]{30,}")),
+    ("openai-compatible-api-key", re.compile(r"\bsk-[0-9A-Za-z_-]{20,}\b")),
+    ("aws-access-key", re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b")),
     ("github-token", re.compile(r"gh[opusr]_[0-9A-Za-z]{20,}")),
+    ("gitlab-token", re.compile(r"glpat-[0-9A-Za-z_-]{20,}")),
+    ("slack-token", re.compile(r"xox[baprs]-[0-9A-Za-z-]{20,}")),
     (
         "generic-secret-assignment",
-        re.compile(r"(?i)(api[_-]?key|token|password)\s*[=:]\s*['\"][^'\"\s]{12,}"),
+        re.compile(
+            r"(?im)^(?:"
+            r"[ \t]*(?:export[ \t]+)?[A-Z][A-Z0-9_.-]*"
+            r"(?:API[_-]?KEY|TOKEN|PASSWORD|SECRET)[A-Z0-9_.-]*"
+            r"[ \t]*[=:][ \t]*['\"]?[0-9A-Za-z_./+=-]{16,}"
+            r"|[ \t]*['\"](?:api[_-]?key|token|password|secret)"
+            r"[0-9A-Za-z_.-]*['\"][ \t]*:[ \t]*['\"][^'\"\s]{12,}"
+            r")"
+        ),
     ),
     ("private-key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
     (
@@ -68,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, default=Path.cwd())
     args = parser.parse_args(argv)
     root = args.root.resolve()
-    findings = audit(root)
+    findings = audit(root, include_history=True)
     if findings:
         for finding in findings:
             print(f"BLOCKED {finding.rule}: {finding.path}")
@@ -77,11 +94,11 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def audit(root: Path) -> list[Finding]:
+def audit(root: Path, *, include_history: bool = False) -> list[Finding]:
     findings: list[Finding] = []
     for path in _candidate_files(root):
         relative = path.relative_to(root)
-        if path.name in FORBIDDEN_NAMES:
+        if _forbidden_runtime_name(path.name):
             findings.append(Finding(relative, "runtime-file"))
             continue
         if path.suffix.casefold() in FORBIDDEN_SUFFIXES:
@@ -97,6 +114,71 @@ def audit(root: Path) -> list[Finding]:
         for name, pattern in CONTENT_RULES:
             if pattern.search(content):
                 findings.append(Finding(relative, name))
+    if include_history:
+        findings.extend(_audit_git_history(root))
+    return findings
+
+
+def _forbidden_runtime_name(name: str) -> bool:
+    lowered = name.casefold()
+    if lowered in ALLOWED_TEMPLATE_NAMES:
+        return False
+    return (
+        lowered in FORBIDDEN_NAMES
+        or (lowered.startswith(".env.") and lowered != ".env.example")
+        or (lowered.startswith("candidate") and lowered.endswith(".json"))
+        or (lowered.startswith("profile") and lowered.endswith(".json"))
+    )
+
+
+def _audit_git_history(root: Path) -> list[Finding]:
+    objects = subprocess.run(
+        ["git", "rev-list", "--objects", "--all"],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    if objects.returncode != 0:
+        return []
+
+    findings: list[Finding] = []
+    seen: set[str] = set()
+    for line in objects.stdout.splitlines():
+        object_id, separator, raw_path = line.partition(" ")
+        if not separator or object_id in seen:
+            continue
+        seen.add(object_id)
+        relative = Path(raw_path)
+        if _forbidden_runtime_name(relative.name):
+            findings.append(Finding(relative, "historical-runtime-file"))
+            continue
+        if relative.suffix.casefold() in FORBIDDEN_SUFFIXES:
+            findings.append(Finding(relative, "historical-personal-artifact"))
+            continue
+        if relative.suffix.casefold() not in TEXT_SUFFIXES and relative.name not in {
+            "LICENSE"
+        }:
+            continue
+        blob = subprocess.run(
+            ["git", "cat-file", "blob", object_id],
+            cwd=root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if blob.returncode != 0:
+            continue
+        try:
+            content = blob.stdout.decode("utf-8")
+        except UnicodeDecodeError:
+            findings.append(Finding(relative, "historical-unreadable-text-file"))
+            continue
+        for name, pattern in CONTENT_RULES:
+            if pattern.search(content):
+                findings.append(Finding(relative, f"historical-{name}"))
     return findings
 
 

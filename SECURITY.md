@@ -32,7 +32,10 @@ boundary. The browser factory rejects them instead of silently downgrading safeg
 - Secrets belong in environment variables or a local secret manager.
 - `.env`, candidate files, resumes, browser state, logs, screenshots, and checkpoints are ignored.
 - The API key is used only in the HTTP header and is never included in prompts or logs.
-- The release audit must pass before a commit or release.
+- The release audit checks the current tree, untracked nonignored files, and full Git
+  history. It must pass before a commit or release.
+- This public reference repository is a separate codebase. Never copy a personal `.env`,
+  candidate profile, resume, checkpoint, screenshot, or application log into it.
 - Rotate a secret immediately if it was ever printed, committed, or shared.
 
 ## Known limitations
